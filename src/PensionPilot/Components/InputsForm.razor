@@ -1,0 +1,347 @@
+@using System.IO
+@using PensionPilot.Models.Config
+@using PensionPilot.Models.Tax
+@inherits ComponentBase
+
+@if (Config is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    @if (Config.Taxes.IncomeTaxBrackets is null || Config.Taxes.IncomeTaxBrackets.Count == 0)
+    {
+        <div class="alert alert-warning">
+            Income Tax Brackets are empty.
+            @if (ShowReloadDefaults)
+            {
+                <button class="btn btn-sm btn-link" @onclick="OnReloadDefaults">Reload defaults</button>
+            }
+        </div>
+    }
+    <EditForm EditContext="_editContext" OnValidSubmit="HandleSave">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <h5>Timeline</h5>
+        <div class="row g-2">
+            <div class="col-md-3">
+                <label>Current Age</label>
+                <InputNumber TValue="int" class="form-control" @bind-Value="Config.Timeline.CurrentAge" />
+            </div>
+            <div class="col-md-3">
+                <label>Retirement Age</label>
+                <InputNumber TValue="int" class="form-control" @bind-Value="Config.Timeline.RetirementAge" />
+            </div>
+            <div class="col-md-3">
+                <label>Pension Age</label>
+                <InputNumber TValue="int" class="form-control" @bind-Value="Config.Timeline.PensionAge" />
+            </div>
+            <div class="col-md-3">
+                <label>Model End Age</label>
+                <InputNumber TValue="int" class="form-control" @bind-Value="Config.Timeline.ModelEndAge" />
+            </div>
+        </div>
+
+        <h5 class="mt-3">Taxes</h5>
+        <div class="mb-2 d-flex align-items-end gap-2">
+            <div class="flex-grow-1">
+                <label>Capital Gains Rate</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Taxes.CapitalGainsRate" />
+            </div>
+            @if (ShowReloadDefaults)
+            {
+                <button type="button" class="btn btn-outline-secondary" title="Reload Defaults" @onclick="OnReloadDefaults">Reload Defaults</button>
+            }
+        </div>
+        <div class="d-flex justify-content-between align-items-center">
+            <h6 class="m-0">Income Tax Brackets (@(Config.Taxes.IncomeTaxBrackets?.Count ?? 0))</h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AddBracket">Add Bracket</button>
+        </div>
+        <table class="table table-sm mt-2">
+            <thead>
+                <tr>
+                    <th>Value</th>
+                    <th>Rate</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var bracket in Config.Taxes.IncomeTaxBrackets ?? new List<IncomeTaxBracket>())
+                {
+                    <TaxBracketRow Bracket="bracket" OnRemove="(() => RemoveBracket(bracket))" />
+                }
+            </tbody>
+        </table>
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <h6 class="m-0">Social Security Tax Brackets (@(Config.Taxes.SocialSecurityTaxBrackets?.Count ?? 0))</h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AddSocialBracket">Add Bracket</button>
+        </div>
+        <table class="table table-sm mt-2">
+            <thead>
+                <tr>
+                    <th>Value</th>
+                    <th>Rate</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var ss in Config.Taxes.SocialSecurityTaxBrackets ?? new List<IncomeTaxBracket>())
+                {
+                    <TaxBracketRow Bracket="ss" OnRemove="(() => RemoveSocialBracket(ss))" />
+                }
+            </tbody>
+        </table>
+
+        <h5 class="mt-3">Salary</h5>
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label>Annual Gross Salary</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.AnnualGrossSalary" />
+            </div>
+            <div class="col-md-4">
+                <label>Annual Growth</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.AnnualSalaryGrowthRate" />
+            </div>
+        </div>
+        <div class="row g-2 mt-1">
+            <div class="col-md-3">
+                <label>Employee Pension %</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.EmployeePensionContributionRate" />
+            </div>
+            <div class="col-md-3">
+                <label>Employer Pension %</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.EmployerPensionContributionRate" />
+            </div>
+            <div class="col-md-3">
+                <label>Employee study fund %</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.EmployeeStudyFundContributionRate" />
+            </div>
+            <div class="col-md-3">
+                <label>Employer study fund %</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.EmployerStudyFundContributionRate" />
+            </div>
+        </div>
+
+        <h5 class="mt-3">RSUs</h5>
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label>Annual Grant</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Rsu.AnnualGrantAmount" />
+            </div>
+            <div class="col-md-4">
+                <label>Vesting Years</label>
+                <InputNumber TValue="int" class="form-control" @bind-Value="Config.Rsu.VestingYears" />
+            </div>
+        </div>
+
+        <h5 class="mt-3">Portfolio</h5>
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label>Current Value</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Portfolio.CurrentValue" />
+            </div>
+            <div class="col-md-4">
+                <label>Annual Return</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Portfolio.AnnualReturnRate" />
+            </div>
+            <div class="col-md-4">
+                <label>Pre-Pension Withdrawal Rate</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Portfolio.PrePensionWithdrawalRate" />
+            </div>
+        </div>
+
+        <h5 class="mt-3">Study fund</h5>
+        <div class="row g-2">
+            <div class="col-md-3">
+                <label>Current Value</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.StudyFund.CurrentValue" />
+            </div>
+            <div class="col-md-3">
+                <label>Annual Return</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.StudyFund.AnnualReturnRate" />
+            </div>
+            <div class="col-md-3">
+                <label>Active From Age</label>
+                <InputNumber TValue="int?" class="form-control" @bind-Value="Config.StudyFund.ActiveFromAge" />
+            </div>
+            <div class="col-md-3">
+                <label>Max Annual Contribution</label>
+                <InputNumber TValue="decimal?" step="any" class="form-control" @bind-Value="Config.StudyFund.MaxAnnualContribution" />
+            </div>
+        </div>
+
+        <h5 class="mt-3">Pension</h5>
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label>Current Balance</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Pension.CurrentBalance" />
+            </div>
+            <div class="col-md-4">
+                <label>Return Until Pension</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Pension.AnnualReturnRateUntilPension" />
+            </div>
+            <div class="col-md-4">
+                <label>Annuity Factor</label>
+                <InputNumber TValue="int" class="form-control" @bind-Value="Config.Pension.AnnuityFactor" />
+            </div>
+        </div>
+
+        <h5 class="mt-3">Expenses</h5>
+        <div class="row g-2">
+            <div class="col-md-6">
+                <label>Annual Expenses</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Expenses.AnnualExpenses" />
+            </div>
+            <div class="col-md-6">
+                <label>Annual Expenses Growth</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Expenses.AnnualExpensesGrowthRate" />
+            </div>
+        </div>
+
+        <h5 class="mt-3">Additional Net Income</h5>
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label>Annual Net Income</label>
+                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.AdditionalIncome.AnnualNetIncome" />
+            </div>
+        </div>
+
+        <div class="mt-3 d-flex gap-2 align-items-center flex-wrap">
+            @if (ShowSave)
+            {
+                <button class="btn btn-secondary" type="submit">Save</button>
+            }
+            @if (ShowReloadDefaults)
+            {
+                <button type="button" class="btn btn-outline-secondary" @onclick="OnReloadDefaults">Reload Defaults</button>
+            }
+            @if (ShowCalculate)
+            {
+                <button type="button" class="btn btn-primary" @onclick="HandleCalculate">Calculate</button>
+            }
+            <button type="button" class="btn btn-outline-success" @onclick="ExportConfig">Export JSON</button>
+            <label class="btn btn-outline-info mb-0">
+                Import JSON
+                <InputFile OnChange="OnImportSelected" accept="application/json" class="d-none" />
+            </label>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public AppConfig? Config { get; set; }
+
+    [Parameter]
+    public bool ShowSave { get; set; } = true;
+
+    [Parameter]
+    public bool ShowReloadDefaults { get; set; } = true;
+
+    [Parameter]
+    public bool ShowCalculate { get; set; } = false;
+
+    [Parameter]
+    public EventCallback<AppConfig> Save { get; set; }
+
+    [Parameter]
+    public EventCallback<AppConfig> Calculate { get; set; }
+
+    [Parameter]
+    public EventCallback OnReloadDefaults { get; set; }
+
+    private EditContext? _editContext;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    protected override void OnParametersSet()
+    {
+        if (Config is not null && (_editContext == null || !ReferenceEquals(_editContext.Model, Config)))
+        {
+            _editContext = new EditContext(Config);
+        }
+    }
+
+    private async Task HandleSave()
+    {
+        if (Config is null) return;
+        if (_editContext?.Validate() == true)
+        {
+            await Save.InvokeAsync(Config);
+        }
+    }
+
+    private async Task HandleCalculate()
+    {
+        if (Config is null) return;
+        if (_editContext?.Validate() == true)
+        {
+            await Calculate.InvokeAsync(Config);
+        }
+    }
+
+    private void AddBracket()
+    {
+        Config!.Taxes.IncomeTaxBrackets ??= new List<IncomeTaxBracket>();
+        Config.Taxes.IncomeTaxBrackets.Add(new IncomeTaxBracket { Value = null, Rate = 0 });
+    }
+
+    private void RemoveBracket(IncomeTaxBracket bracket)
+    {
+        Config?.Taxes.IncomeTaxBrackets?.Remove(bracket);
+    }
+
+    private void AddSocialBracket()
+    {
+        Config!.Taxes.SocialSecurityTaxBrackets ??= new List<IncomeTaxBracket>();
+        Config.Taxes.SocialSecurityTaxBrackets.Add(new IncomeTaxBracket { Value = null, Rate = 0 });
+    }
+
+    private void RemoveSocialBracket(IncomeTaxBracket bracket)
+    {
+        Config?.Taxes.SocialSecurityTaxBrackets?.Remove(bracket);
+    }
+
+    private async Task ExportConfig()
+    {
+        if (Config is null) return;
+        var json = System.Text.Json.JsonSerializer.Serialize(Config, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("pp.saveFile", $"pensionpilot-config-{DateTime.UtcNow:yyyyMMddHHmmss}.json", base64, "application/json");
+    }
+
+    private async Task OnImportSelected(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file is null) return;
+            await using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024);
+            using var reader = new StreamReader(stream);
+            var text = await reader.ReadToEndAsync();
+            var imported = System.Text.Json.JsonSerializer.Deserialize<AppConfig>(text, new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+            if (imported is null)
+            {
+                await JS.InvokeVoidAsync("alert", "Invalid config file.");
+                return;
+            }
+            imported.Taxes ??= new TaxesSettings();
+            imported.Taxes.IncomeTaxBrackets ??= new List<IncomeTaxBracket>();
+            imported.Taxes.SocialSecurityTaxBrackets ??= new List<IncomeTaxBracket>();
+
+            Config = imported;
+            _editContext = new EditContext(Config);
+            await Save.InvokeAsync(Config);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Failed to import config: {ex.Message}");
+        }
+    }
+}

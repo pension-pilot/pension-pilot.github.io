@@ -1,0 +1,22 @@
+@using PensionPilot.Models.Tax
+@inherits ComponentBase
+
+<tr>
+    <td style="max-width: 160px">
+        <InputNumber TValue="decimal?" step="any" class="form-control" @bind-Value="Bracket.Value" />
+    </td>
+    <td style="max-width: 160px">
+        <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Bracket.Rate" />
+    </td>
+    <td class="text-end">
+        <button type="button" class="btn btn-sm btn-outline-danger" @onclick="OnRemove">Remove</button>
+    </td>
+</tr>
+
+@code {
+    [Parameter]
+    public IncomeTaxBracket Bracket { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback OnRemove { get; set; }
+}

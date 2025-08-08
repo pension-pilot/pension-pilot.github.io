@@ -1,0 +1,80 @@
+﻿@page "/"
+@using PensionPilot.Models.Config
+@inject PensionPilot.Services.IConfigService ConfigService
+@inject NavigationManager Nav
+@using PensionPilot.Services
+
+<h3>Inputs</h3>
+<p class="text-muted">Enter your assumptions and calculate your projection.</p>
+
+@if (_config is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <TemporaryConfigBanner IsTemporary="isTemporary" />
+    <InputsForm Config="_config"
+                ShowSave="true"
+                ShowReloadDefaults="@(!isTemporary)"
+                ShowCalculate="true"
+                Save="OnSave"
+                Calculate="OnCalculate"
+                OnReloadDefaults="ReloadDefaults" />
+}
+
+@code {
+    private AppConfig? _config;
+    private bool isTemporary;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = new Uri(Nav.Uri);
+        var qp = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var shared = qp.Get("share");
+        if (!string.IsNullOrWhiteSpace(shared) && ConfigShareHelper.TryDecode(shared, out var imported))
+        {
+            _config = imported;
+            isTemporary = true;
+        }
+        if (_config is null)
+        {
+            _config = await ConfigService.GetConfigAsync();
+        }
+    }
+
+    private async Task OnSave(AppConfig cfg)
+    {
+        // Ensure parent state uses the (possibly new) instance from child (e.g. after Import JSON)
+        _config = cfg;
+        await ConfigService.SetConfigAsync(cfg);
+        if (isTemporary)
+        {
+            isTemporary = false;
+            // Navigate to root relative to <base href>
+            Nav.NavigateTo("", forceLoad: false);
+        }
+        StateHasChanged();
+    }
+
+    private async Task OnCalculate(AppConfig cfg)
+    {
+        if (isTemporary)
+        {
+            // Do not save yet; navigate with encoded config
+            var b64 = ConfigShareHelper.Encode(cfg);
+            Nav.NavigateTo($"planner?share={b64}");
+            return;
+        }
+        await ConfigService.SetConfigAsync(cfg);
+        Nav.NavigateTo("planner");
+    }
+
+    private async Task ReloadDefaults()
+    {
+        if (isTemporary) return; // don't reload defaults over a temporary shared config
+        await ConfigService.ResetAsync();
+        _config = await ConfigService.GetConfigAsync();
+        StateHasChanged();
+    }
+}

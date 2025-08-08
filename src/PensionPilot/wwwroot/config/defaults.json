@@ -1,0 +1,69 @@
+{
+  "timeline": {
+    "currentAge": 20,
+    "retirementAge": 50,
+    "pensionAge": 67,
+    "modelEndAge": 100
+  },
+  "taxes": {
+    "incomeTaxBrackets": [
+      {
+        "value": 50000,
+        "rate": 0.1
+      },
+      {
+        "value": 100000,
+        "rate": 0.2
+      },
+      {
+        "value": null,
+        "rate": 0.3
+      }
+    ],
+    "socialSecurityTaxBrackets": [
+      {
+        "value": 20000,
+        "rate": 0.01
+      },
+      {
+        "value": 40000,
+        "rate": 0.02
+      },
+      {
+        "value": null,
+        "rate": 0.0
+      }
+    ],
+    "capitalGainsRate": 0.25
+  },
+  "salary": {
+    "annualGrossSalary": 100000,
+    "annualSalaryGrowthRate": 0.02
+  },
+  "rsu": {
+    "annualGrantAmount": 0,
+    "vestingYears": 4
+  },
+  "portfolio": {
+    "currentValue": 2000000,
+    "annualReturnRate": 0.05,
+    "prePensionWithdrawalRate": 0.035,
+    "taxWithdrawalsAsCapitalGains": true
+  },
+  "studyFund": {
+    "currentValue": 150000,
+    "annualReturnRate": 0.04
+  },
+  "pension": {
+    "currentBalance": 100000,
+    "annualReturnRateUntilPension": 0.04,
+    "annuityFactor": 220
+  },
+  "expenses": {
+    "annualExpenses": 240000,
+    "annualExpensesGrowthRate": 0.02
+  },
+  "additionalIncome": {
+    "annualNetIncome": 0
+  }
+}

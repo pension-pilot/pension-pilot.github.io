@@ -1,0 +1,8 @@
+@if (IsTemporary)
+{
+    <div class="alert alert-warning py-1 px-2 small mb-2">Temporary configuration loaded from a shared link.</div>
+}
+
+@code {
+    [Parameter] public bool IsTemporary { get; set; }
+}

@@ -1,0 +1,74 @@
+@using PensionPilot.Services
+@using BlazorBootstrap
+@if (Results?.Count > 0)
+{
+    <div class="w-100 p-3 rounded" style="background-color:rgba(255,255,255,0.06);">
+        <LineChart @ref="lineChart" Height="400" Class="mb-2 w-100" />
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<YearResult>? Results { get; set; }
+
+    private LineChart lineChart = default!;
+    private ChartData? _data;
+    private LineChartOptions? _options;
+    private bool _initialized;
+    private bool _needsRender;
+
+    protected override void OnParametersSet()
+    {
+        if (Results is null || Results.Count == 0)
+            return;
+
+        _data = new ChartData
+        {
+            Labels = Results.Select(r => r.Age.ToString()).ToList(),
+            Datasets = new List<IChartDataset>
+            {
+                new LineChartDataset
+                {
+                    Label = "Net Worth",
+                    Data = Results.Select(r => (double?)r.NetWorthEnd).ToList(),
+                    BorderColor = "rgb(13,110,253)",
+                    BackgroundColor = "rgba(13,110,253,0.25)",
+                    BorderWidth = 2,
+                    HoverBorderWidth = 3,
+                    Tension = 0.25,
+                    PointRadius = new List<double>{2},
+                    PointHoverRadius = new List<double>{4}
+                }
+            }
+        };
+
+        var opts = new LineChartOptions
+        {
+            Responsive = true
+        };
+        opts.Interaction.Mode = InteractionMode.Index;
+        opts.Plugins.Legend!.Display = false;
+        opts.Scales.X!.Title = new ChartAxesTitle { Text = "Age", Display = true, Color = "white" };
+        opts.Scales.Y!.Title = new ChartAxesTitle { Text = "Net Worth", Display = true, Color = "white" };
+        _options = opts;
+
+        _needsRender = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_needsRender && _data is not null && _options is not null)
+        {
+            _needsRender = false;
+            if (!_initialized)
+            {
+                await lineChart.InitializeAsync(_data, _options);
+                _initialized = true;
+            }
+            else
+            {
+                await lineChart.UpdateAsync(_data, _options);
+            }
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
+}

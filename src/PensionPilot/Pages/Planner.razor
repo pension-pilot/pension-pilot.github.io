@@ -1,0 +1,233 @@
+@page "/planner"
+@using PensionPilot.Models.Config
+@inject PensionPilot.Services.IConfigService ConfigService
+@inject PensionPilot.Services.ICalculatorService Calc
+@inject NavigationManager Nav
+@using System.Globalization
+@using PensionPilot.Services
+@inject IJSRuntime JS
+
+<h3>Results</h3>
+
+@if (_config is null || _results is null)
+{
+    <p>Calculating...</p>
+}
+else
+{
+    <TemporaryConfigBanner IsTemporary="isTemporaryConfig" />
+    <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mb-2">
+        <button class="btn btn-sm btn-secondary"
+            @onclick="() => columnsPanelVisible = !columnsPanelVisible">Columns</button>
+        <button class="btn btn-sm btn-primary" @onclick="ExportCsv">Export CSV</button>
+        <button class="btn btn-sm btn-outline-info position-relative" @onclick="ShareConfig" disabled="@sharing">
+            @if (copied)
+            {
+                <span>Copied!</span>
+            }
+            else
+            {
+                <span>@(sharing ? "Sharing..." : "Share")</span>
+            }
+        </button>
+        @if (isTemporaryConfig)
+        {
+            <button class="btn btn-sm btn-outline-warning" @onclick="SaveTemporaryConfig">View Shared Configuration</button>
+        }
+        <span class="text-muted small">Net worth at the age of @_config.Timeline.ModelEndAge:
+            <strong>@FormatNumber(_results.Last().NetWorthEnd)</strong></span>
+    </div>
+    @if (columnsPanelVisible)
+    {
+        <div class="card card-body p-2 mb-3 small">
+            <QuickGrid Items="_columnDefs.AsQueryable()" Class="table table-sm mb-2">
+                <TemplateColumn Title="Show">
+                    <ChildContent Context="c">
+                        <input type="checkbox" checked="@IsColumnShown(c.Key)" @onchange="e => OnColumnToggled(c.Key, e)" />
+                    </ChildContent>
+                </TemplateColumn>
+                <PropertyColumn Property="@(c => c.Title)" Title="Column" />
+                <PropertyColumn Property="@(c => c.Description)" Title="Description" />
+            </QuickGrid>
+        </div>
+    }
+
+    <QuickGrid Items="_results.AsQueryable()" Class="table table-sm">
+        <PropertyColumn Property="@(p => p.Age)" Title="Age" />
+        @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.SalaryGross))) { <PropertyColumn Property="@(p => p.SalaryGross)" Title="Salary Gross" Format="N0" /> }
+        @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.SalaryTax))) { <PropertyColumn Property="@(p => p.SalaryTax)" Title="Salary Tax" Format="N0" /> }
+        @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.SalaryNet))) { <PropertyColumn Property="@(p => p.SalaryNet)" Title="Salary Net" Format="N0" /> }
+        @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.RsuNet))) { <PropertyColumn Property="@(p => p.RsuNet)" Title="RSU Net" Format="N0" /> }
+        @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.PensionPayoutNet))) { <PropertyColumn Property="@(p => p.PensionPayoutNet)" Title="Pension Net" Format="N0" /> }
+        @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.NetIncome))) { <PropertyColumn Property="@(p => p.NetIncome)" Title="Net Income" Format="N0" /> }
+        @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.PortfolioEnd))) { <PropertyColumn Property="@(p => p.PortfolioEnd)" Title="Portfolio EOY" Format="N0" /> }
+        @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.StudyFundEnd))) { <PropertyColumn Property="@(p => p.StudyFundEnd)" Title="Study Fund EOY" Format="N0" /> }
+        @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.PensionBalanceEnd))) { <PropertyColumn Property="@(p => p.PensionBalanceEnd)" Title="Pension EOY" Format="N0" /> }
+        @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.NetCashflow))) { <PropertyColumn Property="@(p => p.NetCashflow)" Title="Net Cashflow" Format="N0" /> }
+        @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.Expenses))) { <PropertyColumn Property="@(p => p.Expenses)" Title="Expenses" Format="N0" /> }
+        @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.NetWorthEnd))) { <PropertyColumn Property="@(p => p.NetWorthEnd)" Title="Net Worth" Format="N0" /> }
+    </QuickGrid>
+    <NetWorthChart Results="_results" />
+}
+
+@code {
+    private AppConfig? _config;
+    private IReadOnlyList<PensionPilot.Services.YearResult>? _results;
+    private bool columnsPanelVisible;
+    private bool sharing;
+    private bool copied;
+    private bool isTemporaryConfig;
+    private string? shareUrl;
+
+    private static string FormatNumber(decimal value)
+    => string.Format(CultureInfo.InvariantCulture, "{0:N0}", value);
+
+    private List<ColumnMeta> _columnDefs = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check for shared config query (sc)
+        var uri = new Uri(Nav.Uri);
+        var qp = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var shared = qp.Get("share");
+        if (!string.IsNullOrWhiteSpace(shared) && ConfigShareHelper.TryDecode(shared, out var imported))
+        {
+            _config = imported;
+            isTemporaryConfig = true;
+        }
+        if (_config is null)
+        {
+            _config = await ConfigService.GetConfigAsync();
+        }
+        EnsureColumnsDictionary();
+        BuildColumnDefs();
+        await Run();
+    }
+
+    private void EnsureColumnsDictionary()
+    {
+        if (_config is null) return;
+        if (_config.Columns is null) _config.Columns = new();
+        foreach (var kvp in ColumnVisibilityDefaults.Defaults)
+        {
+            if (!_config.Columns.ContainsKey(kvp.Key))
+                _config.Columns[kvp.Key] = kvp.Value;
+        }
+    }
+
+    private void BuildColumnDefs()
+    {
+        _columnDefs = new()
+{
+new ColumnMeta(nameof(YearResult.SalaryTax), "Salary Tax", "Income + social taxes on salary."),
+new ColumnMeta(nameof(YearResult.SalaryGross), "Salary Gross", "Annual gross salary if working."),
+new ColumnMeta(nameof(YearResult.SalaryNet), "Salary Net", "Salary after tax and employee contributions."),
+new ColumnMeta(nameof(YearResult.RsuNet), "RSU Net", "Vested RSU value after income tax (sell-on-vest)."),
+new ColumnMeta(nameof(YearResult.PensionPayoutNet), "Pension Net", "Pension annuity after income tax."),
+new ColumnMeta(nameof(YearResult.NetIncome), "Net Income", "Total net inflows (salary + RSU + pension + additional)."),
+new ColumnMeta(nameof(YearResult.PortfolioEnd), "Portfolio EOY", "End-of-year taxable portfolio balance."),
+new ColumnMeta(nameof(YearResult.StudyFundEnd), "Study Fund EOY", "End-of-year study fund balance."),
+new ColumnMeta(nameof(YearResult.PensionBalanceEnd), "Pension EOY", "Remaining pension fund balance."),
+new ColumnMeta(nameof(YearResult.NetCashflow), "Net Cashflow", "Income (net) minus expenses."),
+new ColumnMeta(nameof(YearResult.Expenses), "Expenses", "Annual expenses for the year."),
+new ColumnMeta(nameof(YearResult.NetWorthEnd), "Net Worth", "Portfolio + Study Fund + Pension EOY."),
+};
+    }
+
+    private async Task Run()
+    {
+        if (_config is null) return;
+        _results = await Calc.ProjectAsync(_config);
+    }
+
+    private async Task ShareConfig()
+    {
+        if (_config is null || sharing) return;
+        sharing = true;
+        copied = false;
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(_config, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented
+            = false
+            });
+            var b64 = ConfigShareHelper.Encode(_config);
+            shareUrl = Nav.BaseUri.TrimEnd('/') + "/planner?share=" + b64;
+            var ok = await JS.InvokeAsync<bool>("pp.copyText", shareUrl);
+            if (ok)
+            {
+                copied = true;
+                _ = Task.Run(async () => { await Task.Delay(2000); copied = false; StateHasChanged(); });
+            }
+        }
+        finally
+        {
+            sharing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveTemporaryConfig()
+    {
+        if (!isTemporaryConfig || _config is null) return;
+        await ConfigService.SetConfigAsync(_config);
+        isTemporaryConfig = false;
+        // remove query param by navigating back to inputs with share link
+        Nav.NavigateTo($"?share={ConfigShareHelper.Encode(_config)}", forceLoad: false);
+    }
+
+    private async Task ExportCsv()
+    {
+        if (_results is null) return;
+        var sb = new System.Text.StringBuilder();
+        var sep = ",";
+        sb.Append(string.Join(sep, ["YearIndex", "Age", "SalaryGross", "SalaryTax", "SalaryNet", "RsuVested", "RsuTax", "RsuNet", "PensionPayoutGross", "PensionTax", "PensionPayoutNet", "PortfolioStart", "PortfolioReturn", "PortfolioWithdrawalGross", "PortfolioCapGainsTax", "PortfolioEnd", "StudyFundStart", "StudyFundReturn", "StudyFundWithdrawal", "StudyFundEnd", "Expenses", "NetCashflow", "NetWorthEnd", "PensionBalanceEnd", "NetIncome"]));
+        sb.AppendLine();
+        foreach (var r in _results)
+        {
+            sb.Append(r.YearIndex).Append(sep)
+            .Append(r.Age).Append(sep)
+            .Append(r.SalaryGross).Append(sep)
+            .Append(r.SalaryTax).Append(sep)
+            .Append(r.SalaryNet).Append(sep)
+            .Append(r.RsuVested).Append(sep)
+            .Append(r.RsuTax).Append(sep)
+            .Append(r.RsuNet).Append(sep)
+            .Append(r.PensionPayoutGross).Append(sep)
+            .Append(r.PensionTax).Append(sep)
+            .Append(r.PensionPayoutNet).Append(sep)
+            .Append(r.PortfolioStart).Append(sep)
+            .Append(r.PortfolioReturn).Append(sep)
+            .Append(r.PortfolioWithdrawalGross).Append(sep)
+            .Append(r.PortfolioCapGainsTax).Append(sep)
+            .Append(r.PortfolioEnd).Append(sep)
+            .Append(r.StudyFundStart).Append(sep)
+            .Append(r.StudyFundReturn).Append(sep)
+            .Append(r.StudyFundWithdrawal).Append(sep)
+            .Append(r.StudyFundEnd).Append(sep)
+            .Append(r.Expenses).Append(sep)
+            .Append(r.NetCashflow).Append(sep)
+            .Append(r.NetWorthEnd).Append(sep)
+            .Append(r.PensionBalanceEnd).Append(sep)
+            .Append(r.NetIncome)
+            .AppendLine();
+        }
+        var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("pp.saveFile", $"planner-results-{DateTime.UtcNow:yyyyMMddHHmmss}.csv", base64, "text/csv");
+    }
+
+    private bool IsColumnShown(string key) => _config?.Columns.TryGetValue(key, out var visible) == true && visible;
+
+    private async Task OnColumnToggled(string key, ChangeEventArgs e)
+    {
+        if (_config is null) return;
+        var newVal = e.Value is bool b ? b : string.Equals(e.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+        _config.Columns[key] = newVal;
+        await ConfigService.SetConfigAsync(_config);
+        StateHasChanged();
+    }
+
+    private record ColumnMeta(string Key, string Title, string Description);
+}
