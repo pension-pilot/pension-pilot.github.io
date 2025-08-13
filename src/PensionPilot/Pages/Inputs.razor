@@ -14,6 +14,7 @@
 else
 {
     <TemporaryConfigBanner IsTemporary="isTemporary" />
+    <div class="pb-4"> <!-- add bottom padding to avoid footer overlap on mobile when disclaimer visible -->
     <InputsForm Config="_config"
                 ShowSave="true"
                 ShowReloadDefaults="@(!isTemporary)"
@@ -21,6 +22,7 @@ else
                 Save="OnSave"
                 Calculate="OnCalculate"
                 OnReloadDefaults="ReloadDefaults" />
+    </div>
 }
 
 @code {

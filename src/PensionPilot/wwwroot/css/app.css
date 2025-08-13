@@ -112,3 +112,10 @@ code {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+.table-responsive { overflow-x: auto; }
+/* Utility to add space above fixed footer when visible */
+.pb-footer-space { padding-bottom: 6.5rem; }
+@media (max-width:640.98px){
+  .pb-footer-space { padding-bottom: 7.5rem; }
+}

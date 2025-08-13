@@ -3,7 +3,6 @@
     <div class="sidebar">
         <NavMenu />
     </div>
-
     <main>
         <div class="top-row px-4">
         </div>
@@ -14,6 +13,8 @@
     </main>
 </div>
 
+@if (!hideDisclaimer)
+{
 <footer class="site-footer">
     <div class="footer-inner">
         <div class="footer-left">
@@ -23,9 +24,33 @@
             You assume sole responsibility for verifying results and for any outcomes derived from your use of the site.
         </div>
         <div class="footer-right">
-            <a class="github-link" href="https://github.com/pension-pilot/pension-pilot.github.io" target="_blank" rel="noopener" title="Source code on GitHub" aria-label="Source code on GitHub">
-                <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M12 .297a12 12 0 0 0-3.793 23.406c.6.111.82-.258.82-.577 0-.285-.011-1.04-.017-2.04-3.338.726-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.089-.745.083-.73.083-.73 1.205.085 1.84 1.238 1.84 1.238 1.07 1.834 2.807 1.304 3.492.997.108-.775.418-1.305.762-1.605-2.665-.303-5.467-1.332-5.467-5.93 0-1.31.468-2.381 1.236-3.221-.124-.303-.536-1.523.117-3.176 0 0 1.008-.322 3.301 1.23a11.52 11.52 0 0 1 3.003-.404 11.5 11.5 0 0 1 3.003.404c2.292-1.552 3.298-1.23 3.298-1.23.655 1.653.243 2.873.12 3.176.77.84 1.235 1.911 1.235 3.221 0 4.61-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222 0 1.604-.015 2.896-.015 3.286 0 .322.216.694.825.576A12 12 0 0 0 12 .297"/></svg>
-            </a>
+            <button type="button" class="btn btn-sm btn-outline-light" @onclick="CloseDisclaimer" title="Hide">×</button>
         </div>
     </div>
 </footer>
+}
+
+@code {
+    private bool hideDisclaimer;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                hideDisclaimer = await JS.InvokeAsync<bool>("pp.getSessionFlag", "hideDisclaimer");
+                if (hideDisclaimer)
+                {
+                    StateHasChanged();
+                }
+            }
+            catch { }
+        }
+    }
+    private async Task CloseDisclaimer()
+    {
+        hideDisclaimer = true;
+        try { await JS.InvokeVoidAsync("pp.setSessionFlag", "hideDisclaimer", true); } catch { }
+    }
+}

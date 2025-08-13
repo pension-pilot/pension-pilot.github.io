@@ -59,7 +59,26 @@
                     console.error('copy failed', e);
                 }
                 return false;
-            }
+            },
+            shareOrCopy: async (title, text, url) => {
+                const ua = navigator.userAgent || navigator.vendor || '';
+                const isMobile = /Mobi|Android|iPhone|iPad|iPod|Mobile Safari/i.test(ua);
+                if (isMobile && navigator.share) {
+                    try {
+                        await navigator.share({ title, text, url });
+                        return 'shared';
+                    } catch (err) {
+                        if (err && err.name === 'AbortError') return 'aborted';
+                        console.warn('navigator.share failed, falling back', err);
+                    }
+                }
+                const toCopy = url || text;
+                if (!toCopy) return 'failed';
+                const ok = await window.pp.copyText(toCopy);
+                return ok ? 'copied' : 'failed';
+            },
+            setSessionFlag: (key, val) => { try { sessionStorage.setItem(key, val ? '1' : '0'); } catch { } },
+            getSessionFlag: (key) => { try { return sessionStorage.getItem(key) === '1'; } catch { return false; } }
         };
     </script>
     <script src="_framework/blazor.webassembly.js"></script>
