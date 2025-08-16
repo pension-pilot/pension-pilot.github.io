@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Sdk.WebAssembly.Pack" Version="9.0.8" />
     <None Include="wwwroot/config/defaults.json" CopyToOutputDirectory="Always" />
   </ItemGroup>
 
