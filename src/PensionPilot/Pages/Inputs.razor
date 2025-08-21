@@ -2,6 +2,7 @@
 @using PensionPilot.Models.Config
 @inject PensionPilot.Services.IConfigService ConfigService
 @inject NavigationManager Nav
+@using Microsoft.AspNetCore.Components
 @using PensionPilot.Services
 
 <h3>Inputs</h3>
@@ -29,12 +30,11 @@ else
     private AppConfig? _config;
     private bool isTemporary;
 
-    protected override async Task OnInitializedAsync()
+    [SupplyParameterFromQuery(Name = "share")] public string? Share { get; set; }
+
+    protected override async Task OnParametersSetAsync()
     {
-        var uri = new Uri(Nav.Uri);
-        var qp = System.Web.HttpUtility.ParseQueryString(uri.Query);
-        var shared = qp.Get("share");
-        if (!string.IsNullOrWhiteSpace(shared) && ConfigShareHelper.TryDecode(shared, out var imported))
+        if (!string.IsNullOrWhiteSpace(Share) && ConfigShareHelper.TryDecode(Share, out var imported))
         {
             _config = imported;
             isTemporary = true;

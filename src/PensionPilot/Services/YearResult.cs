@@ -33,5 +33,9 @@ public record YearResult
     decimal NetCashflow,
     decimal NetWorthEnd,
 
-    decimal PensionBalanceEnd
+    decimal PensionBalanceEnd,
+
+    bool PortfolioReturnExceedsContribution = false,
+    bool PortfolioReturnExceedsSalary = false,
+    bool WithdrawalRateCoversExpenses = false
 );

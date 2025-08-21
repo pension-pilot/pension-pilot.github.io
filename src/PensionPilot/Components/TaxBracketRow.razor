@@ -9,7 +9,10 @@
         <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Bracket.Rate" />
     </td>
     <td class="text-end">
-        <button type="button" class="btn btn-sm btn-outline-danger" @onclick="OnRemove">Remove</button>
+    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="OnRemove">
+            <i class="bi bi-trash me-1"></i>
+            Remove
+        </button>
     </td>
 </tr>
 

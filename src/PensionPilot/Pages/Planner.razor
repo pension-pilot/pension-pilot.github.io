@@ -4,7 +4,9 @@
 @inject PensionPilot.Services.ICalculatorService Calc
 @inject NavigationManager Nav
 @using System.Globalization
+@using System.Linq
 @using PensionPilot.Services
+@using Microsoft.AspNetCore.Components
 @inject IJSRuntime JS
 
 <h3>Results</h3>
@@ -17,25 +19,47 @@ else
 {
     <TemporaryConfigBanner IsTemporary="isTemporaryConfig" />
     <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mb-2">
-        <button class="btn btn-sm btn-secondary"
-            @onclick="() => columnsPanelVisible = !columnsPanelVisible">Columns</button>
-        <button class="btn btn-sm btn-primary" @onclick="ExportCsv">Export CSV</button>
-        <button class="btn btn-sm btn-outline-info position-relative" @onclick="ShareConfig">
+        <button class="btn btn-sm btn-cyan-outline" @onclick="() => columnsPanelVisible = !columnsPanelVisible">
+            <i class="bi bi-columns me-1"></i>
+            Columns
+        </button>
+        <button class="btn btn-sm btn-cyan-outline" @onclick="ExportCsv">
+            <i class="bi bi-filetype-csv me-1"></i>
+            Export CSV
+        </button>
+    <button class="btn btn-sm btn-cyan-outline position-relative" @onclick="ShareConfig">
             @if (copied)
             {
-                <span>Copied!</span>
+                <span>
+            <i class="bi bi-clipboard-check me-1"></i>
+                    Copied!
+                </span>
             }
             else
             {
-                <span>Share</span>
+                <span>
+            <i class="bi bi-share me-1"></i>
+                    Share
+                </span>
             }
         </button>
         @if (isTemporaryConfig)
         {
-            <button class="btn btn-sm btn-outline-warning" @onclick="SaveTemporaryConfig">View Shared Configuration</button>
+            <button class="btn btn-sm btn-temp" @onclick="SaveTemporaryConfig">
+                <i class="bi bi-eye-fill me-1"></i>
+                View Shared Configuration
+            </button>
         }
-        <span class="text-muted small">Net worth at the age of @_config.Timeline.ModelEndAge:
-            <strong>@FormatNumber(_results.Last().NetWorthEnd)</strong></span>
+    </div>
+    <div class="mt-2 mb-3 text-muted small border rounded p-2">
+        <div>Net worth at the age of @_config.Timeline.ModelEndAge: <strong>@FormatNumber(_results.Last().NetWorthEnd)</strong></div>
+        @if (_landmarksParts.Count > 0)
+        {
+            @foreach (var part in _landmarksParts)
+            {
+                <div>@part</div>
+            }
+        }
     </div>
     @if (columnsPanelVisible)
     {
@@ -52,8 +76,8 @@ else
         </div>
     }
 
-    <div class="table-responsive">
-        <QuickGrid Items="_results.AsQueryable()" Class="table table-sm">
+    <div class="table-responsive border rounded p-1 mb-3">
+        <QuickGrid Items="_results.AsQueryable()" Class="table table-sm mb-0">
             <PropertyColumn Property="@(p => p.Age)" Title="Age" />
             @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.SalaryGross))) { <PropertyColumn Property="@(p => p.SalaryGross)" Title="Salary Gross" Format="N0" /> }
             @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.SalaryTax))) { <PropertyColumn Property="@(p => p.SalaryTax)" Title="Salary Tax" Format="N0" /> }
@@ -69,7 +93,7 @@ else
             @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.NetWorthEnd))) { <PropertyColumn Property="@(p => p.NetWorthEnd)" Title="Net Worth" Format="N0" /> }
         </QuickGrid>
     </div>
-    <NetWorthChart Results="_results" />
+    <NetWorthChart Results="_results" Achievements="_achievements" />
 }
 
 @code {
@@ -79,19 +103,20 @@ else
     private bool copied;
     private bool isTemporaryConfig;
     private string? shareUrl;
+    private List<AchievementPoint> _achievements = new();
+    private readonly List<string> _landmarksParts = new();
 
     private static string FormatNumber(decimal value)
     => string.Format(CultureInfo.InvariantCulture, "{0:N0}", value);
 
     private List<ColumnMeta> _columnDefs = new();
 
-    protected override async Task OnInitializedAsync()
+    [SupplyParameterFromQuery(Name = "share")] public string? Share { get; set; }
+
+    protected override async Task OnParametersSetAsync()
     {
-        // Check for shared config query (sc)
-        var uri = new Uri(Nav.Uri);
-        var qp = System.Web.HttpUtility.ParseQueryString(uri.Query);
-        var shared = qp.Get("share");
-        if (!string.IsNullOrWhiteSpace(shared) && ConfigShareHelper.TryDecode(shared, out var imported))
+        // Prefer config from shared query, otherwise load saved config
+        if (!string.IsNullOrWhiteSpace(Share) && ConfigShareHelper.TryDecode(Share, out var imported))
         {
             _config = imported;
             isTemporaryConfig = true;
@@ -139,6 +164,52 @@ else
     {
         if (_config is null) return;
         _results = await Calc.ProjectAsync(_config);
+        BuildAchievementMarkers();
+    }
+
+    private void BuildAchievementMarkers()
+    {
+        _achievements.Clear();
+        _landmarksParts.Clear();
+        if (_results is null || _results.Count == 0) return;
+
+        bool addedReturnExceedsContribution = false;
+        bool addedReturnExceedsSalary = false;
+        bool addedWithdrawalRateCoversExpenses = false;
+
+        for (int i = 0; i < _results.Count; i++)
+        {
+            var r = _results[i];
+            if (r.PortfolioReturnExceedsContribution)
+            {
+                _achievements.Add(new AchievementPoint(i, r.Age, r.NetWorthEnd, LandmarkDescriptions.ReturnExceedsContribution, "rgb(255,215,0)"));
+                if (!addedReturnExceedsContribution)
+                {
+                    _landmarksParts.Add($"{LandmarkDescriptions.ReturnExceedsContribution} at age {r.Age}");
+                    addedReturnExceedsContribution = true;
+                }
+            }
+            
+            if (r.PortfolioReturnExceedsSalary)
+            {
+                _achievements.Add(new AchievementPoint(i, r.Age, r.NetWorthEnd, LandmarkDescriptions.ReturnExceedsSalary, "rgb(255,99,132)"));
+                if (!addedReturnExceedsSalary)
+                {
+                    _landmarksParts.Add($"{LandmarkDescriptions.ReturnExceedsSalary} at age {r.Age}");
+                    addedReturnExceedsSalary = true;
+                }
+            }
+
+            if (r.WithdrawalRateCoversExpenses)
+            {
+                _achievements.Add(new AchievementPoint(i, r.Age, r.NetWorthEnd, LandmarkDescriptions.WithdrawalRateCoversExpenses, "rgb(46, 204, 113)"));
+                if (!addedWithdrawalRateCoversExpenses)
+                {
+                    _landmarksParts.Add($"{LandmarkDescriptions.WithdrawalRateCoversExpenses} at age {r.Age}");
+                    addedWithdrawalRateCoversExpenses = true;
+                }
+            }
+        }
     }
 
     private async Task ShareConfig()

@@ -15,7 +15,11 @@ public class CalculatorService(ITaxService tax) : ICalculatorService
         decimal pensionBalance = cfg.Pension.CurrentBalance;
         decimal salary = cfg.Salary.AnnualGrossSalary;
 
-        for (int year = 0; age <= cfg.Timeline.ModelEndAge; year++, age++)
+    bool foundPortfolioReturnExceedsContribution = false;
+    bool foundPortfolioReturnExceedsSalary = false;
+    bool foundWithdrawalRateCoversExpenses = false;
+
+    for (int year = 0; age <= cfg.Timeline.ModelEndAge; year++, age++)
         {
             var isWorking = age < cfg.Timeline.RetirementAge;
             var isPension = age >= cfg.Timeline.PensionAge;
@@ -167,6 +171,36 @@ public class CalculatorService(ITaxService tax) : ICalculatorService
             }
 
             var netWorthEnd = portfolio + studyFund + pensionBalance;
+
+            // Achievement flags (only mark the first year they happen)
+            bool markPortfolioReturnExceedsContribution = false;
+            bool markPortfolioReturnExceedsSalary = false;
+            bool markWithdrawalRateCoversExpenses = false;
+
+            if (isWorking)
+            {
+                var additional = cfg.AdditionalIncome.AnnualNetIncome;
+                var savings = Math.Max(0, salaryNet + additional - expenses);
+                var contributions = rsuNet + savings;
+                if (!foundPortfolioReturnExceedsContribution && portfolioReturn > contributions)
+                {
+                    markPortfolioReturnExceedsContribution = true;
+                    foundPortfolioReturnExceedsContribution = true;
+                }
+
+                if (!foundPortfolioReturnExceedsSalary && portfolioReturn > salaryGross)
+                {
+                    markPortfolioReturnExceedsSalary = true;
+                    foundPortfolioReturnExceedsSalary = true;
+                }
+            }
+
+            var swrIncome = portfolio * cfg.Portfolio.PrePensionWithdrawalRate;
+            if (!foundWithdrawalRateCoversExpenses && swrIncome >= expenses)
+            {
+                markWithdrawalRateCoversExpenses = true;
+                foundWithdrawalRateCoversExpenses = true;
+            }
             var netIncomeTotal = salaryNet + rsuNet + pensionPayoutNet + cfg.AdditionalIncome.AnnualNetIncome;
             var result = new YearResult(
                 YearIndex: year,
@@ -193,7 +227,10 @@ public class CalculatorService(ITaxService tax) : ICalculatorService
                 Expenses: expenses,
                 NetCashflow: incomeNet - expenses,
                 NetWorthEnd: netWorthEnd,
-                PensionBalanceEnd: pensionBalance);
+                PensionBalanceEnd: pensionBalance,
+                PortfolioReturnExceedsContribution: markPortfolioReturnExceedsContribution,
+                PortfolioReturnExceedsSalary: markPortfolioReturnExceedsSalary,
+                WithdrawalRateCoversExpenses: markWithdrawalRateCoversExpenses);
 
             list.Add(result);
 

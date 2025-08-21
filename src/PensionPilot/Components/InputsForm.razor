@@ -1,6 +1,7 @@
 @using System.IO
 @using PensionPilot.Models.Config
 @using PensionPilot.Models.Tax
+@using System.Text.Json
 @inherits ComponentBase
 
 @if (Config is null)
@@ -15,7 +16,10 @@ else
             Income Tax Brackets are empty.
             @if (ShowReloadDefaults)
             {
-                <button class="btn btn-sm btn-link" @onclick="OnReloadDefaults">Reload defaults</button>
+                <button class="btn btn-sm btn-cyan-outline" @onclick="OnReloadDefaults">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>
+                    Reload defaults
+                </button>
             }
         </div>
     }
@@ -23,8 +27,9 @@ else
         <DataAnnotationsValidator />
         <ValidationSummary />
 
-        <h5>Timeline</h5>
-        <div class="row g-2">
+        <div class="border rounded p-2">
+            <h5 class="mb-2">Timeline</h5>
+            <div class="row g-2">
             <div class="col-md-3">
                 <label>Current Age</label>
                 <InputNumber TValue="int" class="form-control" @bind-Value="Config.Timeline.CurrentAge" />
@@ -41,95 +46,110 @@ else
                 <label>Model End Age</label>
                 <InputNumber TValue="int" class="form-control" @bind-Value="Config.Timeline.ModelEndAge" />
             </div>
+            </div>
         </div>
 
-        <h5 class="mt-3">Taxes</h5>
-        <div class="mb-2 d-flex align-items-end gap-2">
-            <div class="flex-grow-1">
-                <label>Capital Gains Rate</label>
-                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Taxes.CapitalGainsRate" />
-            </div>
-            @if (ShowReloadDefaults)
-            {
-                <button type="button" class="btn btn-outline-secondary" title="Reload Defaults" @onclick="OnReloadDefaults">Reload Defaults</button>
-            }
-        </div>
-        <div class="d-flex justify-content-between align-items-center">
-            <h6 class="m-0">Income Tax Brackets (@(Config.Taxes.IncomeTaxBrackets?.Count ?? 0))</h6>
-            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AddBracket">Add Bracket</button>
-        </div>
-        <div class="table-responsive">
-        <table class="table table-sm mt-2">
-            <thead>
-                <tr>
-                    <th>Value</th>
-                    <th>Rate</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var bracket in Config.Taxes.IncomeTaxBrackets ?? new List<IncomeTaxBracket>())
+        <div class="border rounded p-2 mt-3">
+            <h5 class="mb-2">Taxes</h5>
+            <div class="mb-2 d-flex align-items-end gap-2">
+                <div class="flex-grow-1">
+                    <label>Capital Gains Rate</label>
+                    <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Taxes.CapitalGainsRate" />
+                </div>
+                @if (ShowReloadDefaults)
                 {
-                    <TaxBracketRow Bracket="bracket" OnRemove="(() => RemoveBracket(bracket))" />
+                    <button type="button" class="btn btn-outline-secondary" title="Reload Defaults" @onclick="OnReloadDefaults">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>
+                        Reload Defaults
+                    </button>
                 }
-            </tbody>
-        </table>
-        </div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="m-0">Income Tax Brackets (@(Config.Taxes.IncomeTaxBrackets?.Count ?? 0))</h6>
+                <button type="button" class="btn btn-sm btn-cyan-outline" @onclick="AddBracket">
+                    <i class="bi bi-plus-lg me-1"></i>
+                    Add Bracket
+                </button>
+            </div>
+            <div class="table-responsive">
+            <table class="table table-sm table-borderless mt-2 mb-0">
+                <thead>
+                    <tr>
+                        <th>Value</th>
+                        <th>Rate</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var bracket in Config.Taxes.IncomeTaxBrackets ?? new List<IncomeTaxBracket>())
+                    {
+                        <TaxBracketRow Bracket="bracket" OnRemove="(() => RemoveBracket(bracket))" />
+                    }
+                </tbody>
+            </table>
+            </div>
 
-        <div class="d-flex justify-content-between align-items-center mt-3">
-            <h6 class="m-0">Social Security Tax Brackets (@(Config.Taxes.SocialSecurityTaxBrackets?.Count ?? 0))</h6>
-            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AddSocialBracket">Add Bracket</button>
-        </div>
-        <div class="table-responsive">
-        <table class="table table-sm mt-2">
-            <thead>
-                <tr>
-                    <th>Value</th>
-                    <th>Rate</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var ss in Config.Taxes.SocialSecurityTaxBrackets ?? new List<IncomeTaxBracket>())
-                {
-                    <TaxBracketRow Bracket="ss" OnRemove="(() => RemoveSocialBracket(ss))" />
-                }
-            </tbody>
-        </table>
-        </div>
-
-        <h5 class="mt-3">Salary</h5>
-        <div class="row g-2">
-            <div class="col-md-4">
-                <label>Annual Gross Salary</label>
-                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.AnnualGrossSalary" />
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <h6 class="m-0">Social Security Tax Brackets (@(Config.Taxes.SocialSecurityTaxBrackets?.Count ?? 0))</h6>
+                <button type="button" class="btn btn-sm btn-cyan-outline" @onclick="AddSocialBracket">
+                    <i class="bi bi-plus-lg me-1"></i>
+                    Add Bracket
+                </button>
             </div>
-            <div class="col-md-4">
-                <label>Annual Growth</label>
-                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.AnnualSalaryGrowthRate" />
-            </div>
-        </div>
-        <div class="row g-2 mt-1">
-            <div class="col-md-3">
-                <label>Employee Pension %</label>
-                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.EmployeePensionContributionRate" />
-            </div>
-            <div class="col-md-3">
-                <label>Employer Pension %</label>
-                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.EmployerPensionContributionRate" />
-            </div>
-            <div class="col-md-3">
-                <label>Employee study fund %</label>
-                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.EmployeeStudyFundContributionRate" />
-            </div>
-            <div class="col-md-3">
-                <label>Employer study fund %</label>
-                <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.EmployerStudyFundContributionRate" />
+            <div class="table-responsive">
+            <table class="table table-sm table-borderless mt-2 mb-0">
+                <thead>
+                    <tr>
+                        <th>Value</th>
+                        <th>Rate</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var ss in Config.Taxes.SocialSecurityTaxBrackets ?? new List<IncomeTaxBracket>())
+                    {
+                        <TaxBracketRow Bracket="ss" OnRemove="(() => RemoveSocialBracket(ss))" />
+                    }
+                </tbody>
+            </table>
             </div>
         </div>
 
-        <h5 class="mt-3">RSUs</h5>
-        <div class="row g-2">
+        <div class="border rounded p-2 mt-3">
+            <h5 class="mb-2">Salary</h5>
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label>Annual Gross Salary</label>
+                    <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.AnnualGrossSalary" />
+                </div>
+                <div class="col-md-4">
+                    <label>Annual Growth</label>
+                    <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.AnnualSalaryGrowthRate" />
+                </div>
+            </div>
+            <div class="row g-2 mt-1">
+                <div class="col-md-3">
+                    <label>Employee Pension %</label>
+                    <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.EmployeePensionContributionRate" />
+                </div>
+                <div class="col-md-3">
+                    <label>Employer Pension %</label>
+                    <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.EmployerPensionContributionRate" />
+                </div>
+                <div class="col-md-3">
+                    <label>Employee study fund %</label>
+                    <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.EmployeeStudyFundContributionRate" />
+                </div>
+                <div class="col-md-3">
+                    <label>Employer study fund %</label>
+                    <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Salary.EmployerStudyFundContributionRate" />
+                </div>
+            </div>
+        </div>
+
+        <div class="border rounded p-2 mt-3">
+            <h5 class="mb-2">RSUs</h5>
+            <div class="row g-2">
             <div class="col-md-4">
                 <label>Annual Grant</label>
                 <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Rsu.AnnualGrantAmount" />
@@ -138,10 +158,12 @@ else
                 <label>Vesting Years</label>
                 <InputNumber TValue="int" class="form-control" @bind-Value="Config.Rsu.VestingYears" />
             </div>
+            </div>
         </div>
 
-        <h5 class="mt-3">Portfolio</h5>
-        <div class="row g-2">
+        <div class="border rounded p-2 mt-3">
+            <h5 class="mb-2">Portfolio</h5>
+            <div class="row g-2">
             <div class="col-md-4">
                 <label>Current Value</label>
                 <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Portfolio.CurrentValue" />
@@ -154,10 +176,12 @@ else
                 <label>Pre-Pension Withdrawal Rate</label>
                 <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Portfolio.PrePensionWithdrawalRate" />
             </div>
+            </div>
         </div>
 
-        <h5 class="mt-3">Study fund</h5>
-        <div class="row g-2">
+        <div class="border rounded p-2 mt-3">
+            <h5 class="mb-2">Study fund</h5>
+            <div class="row g-2">
             <div class="col-md-3">
                 <label>Current Value</label>
                 <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.StudyFund.CurrentValue" />
@@ -174,10 +198,12 @@ else
                 <label>Max Annual Contribution</label>
                 <InputNumber TValue="decimal?" step="any" class="form-control" @bind-Value="Config.StudyFund.MaxAnnualContribution" />
             </div>
+            </div>
         </div>
 
-        <h5 class="mt-3">Pension</h5>
-        <div class="row g-2">
+        <div class="border rounded p-2 mt-3">
+            <h5 class="mb-2">Pension</h5>
+            <div class="row g-2">
             <div class="col-md-4">
                 <label>Current Balance</label>
                 <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Pension.CurrentBalance" />
@@ -190,10 +216,12 @@ else
                 <label>Annuity Factor</label>
                 <InputNumber TValue="int" class="form-control" @bind-Value="Config.Pension.AnnuityFactor" />
             </div>
+            </div>
         </div>
 
-        <h5 class="mt-3">Expenses</h5>
-        <div class="row g-2">
+        <div class="border rounded p-2 mt-3">
+            <h5 class="mb-2">Expenses</h5>
+            <div class="row g-2">
             <div class="col-md-6">
                 <label>Annual Expenses</label>
                 <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Expenses.AnnualExpenses" />
@@ -202,31 +230,47 @@ else
                 <label>Annual Expenses Growth</label>
                 <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.Expenses.AnnualExpensesGrowthRate" />
             </div>
+            </div>
         </div>
 
-        <h5 class="mt-3">Additional Net Income</h5>
-        <div class="row g-2">
+        <div class="border rounded p-2 mt-3">
+            <h5 class="mb-2">Additional Net Income</h5>
+            <div class="row g-2">
             <div class="col-md-4">
                 <label>Annual Net Income</label>
                 <InputNumber TValue="decimal" step="any" class="form-control" @bind-Value="Config.AdditionalIncome.AnnualNetIncome" />
             </div>
+            </div>
         </div>
 
         <div class="mt-3 d-flex gap-2 align-items-center flex-wrap">
+            @if (ShowCalculate)
+            {
+                <button type="button" class="btn btn-calc" @onclick="HandleCalculate">
+                    <i class="bi bi-calculator-fill me-1"></i>
+                    Calculate
+                </button>
+            }
             @if (ShowSave)
             {
-                <button class="btn btn-secondary" type="submit">Save</button>
+                <button class="btn btn-cyan-outline" type="submit">
+                    <i class="bi bi-save me-1"></i>
+                    Save
+                </button>
             }
             @if (ShowReloadDefaults)
             {
-                <button type="button" class="btn btn-outline-secondary" @onclick="OnReloadDefaults">Reload Defaults</button>
+                <button type="button" class="btn btn-cyan-outline" @onclick="OnReloadDefaults">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>
+                    Reload Defaults
+                </button>
             }
-            @if (ShowCalculate)
-            {
-                <button type="button" class="btn btn-primary" @onclick="HandleCalculate">Calculate</button>
-            }
-            <button type="button" class="btn btn-outline-success" @onclick="ExportConfig">Export JSON</button>
-            <label class="btn btn-outline-info mb-0">
+            <button type="button" class="btn btn-cyan-outline" @onclick="ExportConfig">
+                <i class="bi bi-filetype-json me-1"></i>
+                Export JSON
+            </button>
+            <label class="btn btn-cyan-outline mb-0">
+                <i class="bi bi-filetype-json me-1"></i>
                 Import JSON
                 <InputFile OnChange="OnImportSelected" accept="application/json" class="d-none" />
             </label>
@@ -235,6 +279,11 @@ else
 }
 
 @code {
+    private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions(JsonSerializerOptions.Web)
+    {
+        WriteIndented = true
+    };
+
     [Parameter]
     public AppConfig? Config { get; set; }
 
@@ -310,7 +359,7 @@ else
     private async Task ExportConfig()
     {
         if (Config is null) return;
-        var json = System.Text.Json.JsonSerializer.Serialize(Config, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        var json = JsonSerializer.Serialize(Config, JsonOptions);
         var bytes = System.Text.Encoding.UTF8.GetBytes(json);
         var base64 = Convert.ToBase64String(bytes);
         await JS.InvokeVoidAsync("pp.saveFile", $"pensionpilot-config-{DateTime.UtcNow:yyyyMMddHHmmss}.json", base64, "application/json");
@@ -325,10 +374,7 @@ else
             await using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024);
             using var reader = new StreamReader(stream);
             var text = await reader.ReadToEndAsync();
-            var imported = System.Text.Json.JsonSerializer.Deserialize<AppConfig>(text, new System.Text.Json.JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
+            var imported = System.Text.Json.JsonSerializer.Deserialize<AppConfig>(text, JsonOptions);
             if (imported is null)
             {
                 await JS.InvokeVoidAsync("alert", "Invalid config file.");

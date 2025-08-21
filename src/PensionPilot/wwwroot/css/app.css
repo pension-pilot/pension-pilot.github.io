@@ -119,3 +119,66 @@ code {
 @media (max-width:640.98px){
   .pb-footer-space { padding-bottom: 7.5rem; }
 }
+
+/* PensionPilot custom button palette */
+:root {
+    /* Keep bootstrap primary hue but a bit darker for emphasis */
+    --pp-blue: #0b5ed7; /* calculate (darker shade of bootstrap primary) */
+    --pp-blue-hover: #0a58ca;
+    --pp-gold: #ffd700; /* temporary */
+    --pp-gold-hover: #b79b00; /* temporary */
+    --pp-gold-border: #e6c200;
+    /* Unify cyan to same hue as calculate but outline-only usage */
+    --pp-cyan: #60a3fa;
+    --pp-cyan-hover: var(--pp-blue-hover);
+}
+
+.btn-calc {
+    color: #fff;
+    background-color: var(--pp-blue);
+    border-color: var(--pp-blue);
+}
+
+.btn-calc:hover,
+.btn-calc:focus {
+    color: #fff;
+    background-color: var(--pp-blue-hover);
+    border-color: var(--pp-blue-hover);
+}
+
+.btn-temp {
+    color: #000;
+    background-color: var(--pp-gold);
+    border-color: var(--pp-gold-border);
+}
+
+.btn-temp:hover,
+.btn-temp:focus {
+    color: #000;
+    background-color: var(--pp-gold-hover);
+    border-color: darken(var(--pp-gold-border), 5%);
+}
+
+.btn-cyan-outline {
+    color: var(--pp-cyan);
+    border-color: var(--pp-cyan);
+    background-color: transparent;
+}
+
+.btn-cyan-outline:hover,
+.btn-cyan-outline:focus {
+    color: #fff;
+    background-color: var(--pp-cyan);
+    border-color: var(--pp-cyan-hover);
+}
+
+/* Small icon spacing inside buttons */
+.btn .icon { margin-right: .35rem; vertical-align: -2px; }
+
+/* Align Bootstrap Icons neatly with text in nav links */
+.nav-link { line-height: 1.25; }
+.nav-link .bi {
+    vertical-align: middle;
+    position: relative;
+    top: -1px; /* nudge icon up slightly to match cap height */
+}
