@@ -1,6 +1,6 @@
-# PensionPilot
+# Pension Pilot
 
-PensionPilot is a tool for simulating retirement finances. It includes portfolio assets, study fund, pension fund, salary, company stocks (RSU). You can configure age of retirement, rate of returns for each source of income, rate of withdrawal, pension payouts, and tax payments (income tax, capital gains tax).
+Pension Pilot is a tool for simulating retirement finances. It includes portfolio assets, study fund, pension fund, salary, company stocks (RSU). You can configure age of retirement, rate of returns for each source of income, rate of withdrawal, pension payouts, and tax payments (income tax, capital gains tax).
 
 Built with GitHub Copilot & GPT-5. Might contain mistakes. The following description is the spec used to generate the tool.
 

@@ -5,8 +5,19 @@
 @using Microsoft.AspNetCore.Components
 @using PensionPilot.Services
 
-<h3>Inputs</h3>
-<p class="text-muted">Enter your assumptions and calculate your projection.</p>
+<div class="intro-box" role="note" aria-label="About PensionPilot">
+    <div class="intro-title">
+        <span class="bi bi-info-circle-fill me-1" aria-hidden="true"></span>
+        About Pension Pilot
+    </div>
+    <ul class="mb-0">
+        <li>Simulate retirement finances across portfolio, study fund, pension, salary, and RSUs, including income and capital gains taxes.</li>
+        <li>Discover important portfolio milestones, such as potential early retirement age.</li>
+        <li>Edit the inputs and click <strong>Calculate</strong> to see year-by-year cashflow and net worth on the results page.</li>
+        <li>Inputs are saved in your browser's local storage.</li>
+        <li>Use the <strong>Share</strong> button on the results page to get a link that contains your inputs. Opening that link loads a temporary plan, allowing you to either save or discard it.</li>
+    </ul>
+</div>
 
 @if (_config is null)
 {

@@ -1,0 +1,21 @@
+.intro-box {
+  background: #0539817f;
+  color: #fff;
+  border-width: 2rem;
+  border-color: #3a89ff;
+  border-radius: 0.5rem;
+  padding: 0.75rem 0.9rem;
+  margin: 0 0 0.5rem 0;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.intro-title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  letter-spacing: 0.2px;
+}
+.intro-box a { color: #cde3ff; text-decoration: underline; }
+.intro-box a:hover { color: #ffffff; }
+.intro-box ul { padding-left: 1.15rem; }
+.intro-box li { margin: 0.15rem 0; }
+
+/* Gradient matches sidebar (see MainLayout.razor.css). */
