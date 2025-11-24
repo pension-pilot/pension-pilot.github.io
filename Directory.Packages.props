@@ -8,7 +8,7 @@
     <DotnetVersion>10.0.0</DotnetVersion>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Blazor.Bootstrap" Version="3.4.0" />
+    <PackageVersion Include="Blazor.Bootstrap" Version="3.5.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.QuickGrid" Version="$(DotnetVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="$(DotnetVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="$(DotnetVersion)" />
