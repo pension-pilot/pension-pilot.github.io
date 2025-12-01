@@ -13,6 +13,6 @@
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="$(DotnetVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="$(DotnetVersion)" />
     <PackageVersion Include="Microsoft.NET.Sdk.WebAssembly.Pack" Version="$(DotnetVersion)" />
-    <PackageVersion Include="PublishSPAforGitHubPages.Build" Version="3.0.1" />
+    <PackageVersion Include="PublishSPAforGitHubPages.Build" Version="3.0.3" />
   </ItemGroup>
 </Project>
