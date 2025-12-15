@@ -5,7 +5,7 @@
     <NoWarn>$(NoWarn);NU1507</NoWarn>
   </PropertyGroup>
   <PropertyGroup>
-    <DotnetVersion>10.0.0</DotnetVersion>
+    <DotnetVersion>10.0.1</DotnetVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Blazor.Bootstrap" Version="3.5.0" />
