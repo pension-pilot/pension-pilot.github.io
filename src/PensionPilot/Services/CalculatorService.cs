@@ -4,22 +4,28 @@ namespace PensionPilot.Services;
 
 public class CalculatorService(ITaxService tax) : ICalculatorService
 {
-    public Task<IReadOnlyList<YearResult>> ProjectAsync(AppConfig cfg)
+    public IReadOnlyList<YearResult> Project(AppConfig cfg)
     {
         var list = new List<YearResult>();
 
         var age = cfg.Timeline.CurrentAge;
 
         decimal portfolio = cfg.Portfolio.CurrentValue;
+        decimal portfolioCostBasis = cfg.Portfolio.CurrentValue; // Track cost basis for capital gains
         decimal studyFund = cfg.StudyFund.CurrentValue;
         decimal pensionBalance = cfg.Pension.CurrentBalance;
         decimal salary = cfg.Salary.AnnualGrossSalary;
+        decimal additionalIncome = cfg.AdditionalIncome.AnnualNetIncome;
+        decimal? fixedPensionAnnuity = null; // Calculated once at pension age
 
-    bool foundPortfolioReturnExceedsContribution = false;
-    bool foundPortfolioReturnExceedsSalary = false;
-    bool foundWithdrawalRateCoversExpenses = false;
+        bool foundPortfolioReturnExceedsContribution = false;
+        bool foundPortfolioReturnExceedsSalary = false;
+        bool foundWithdrawalRateCoversExpenses = false;
 
-    for (int year = 0; age <= cfg.Timeline.ModelEndAge; year++, age++)
+        // Guard against division by zero
+        var vestingYears = Math.Max(1, cfg.Rsu.VestingYears);
+
+        for (int year = 0; age <= cfg.Timeline.ModelEndAge; year++, age++)
         {
             var isWorking = age < cfg.Timeline.RetirementAge;
             var isPension = age >= cfg.Timeline.PensionAge;
@@ -70,16 +76,25 @@ public class CalculatorService(ITaxService tax) : ICalculatorService
             decimal rsuNet = 0;
             if (cfg.Rsu.AnnualGrantAmount > 0)
             {
-                // Assume grants every year; for year N, vest 1/4 of each of the last 4 grants
-                for (int g = 0; g < cfg.Rsu.VestingYears; g++)
+                // For year N, vest 1/4 of each of the last VestingYears grants, but only count grants from working years
+                for (int g = 0; g < vestingYears; g++)
                 {
                     var grantIndex = year - g; // grant in this or previous years
                     if (grantIndex < 0) continue;
-                    rsuVested += cfg.Rsu.AnnualGrantAmount / cfg.Rsu.VestingYears;
+
+                    // Only count this grant if it was made during a working year
+                    var grantAge = cfg.Timeline.CurrentAge + grantIndex;
+                    var wasWorking = grantAge < cfg.Timeline.RetirementAge;
+                    if (!wasWorking) continue;
+
+                    rsuVested += cfg.Rsu.AnnualGrantAmount / vestingYears;
                 }
                 // Tax RSU as income on vest
-                rsuTax = tax.CalculateIncomeTax(rsuVested, cfg.Taxes.IncomeTaxBrackets);
-                rsuNet = rsuVested - rsuTax;
+                if (rsuVested > 0)
+                {
+                    rsuTax = tax.CalculateIncomeTax(rsuVested, cfg.Taxes.IncomeTaxBrackets);
+                    rsuNet = rsuVested - rsuTax;
+                }
             }
 
             // Pension growth until pension age, then payout as annuity
@@ -94,12 +109,21 @@ public class CalculatorService(ITaxService tax) : ICalculatorService
             }
             else
             {
-                // Calculate monthly payout by annuity factor
-                var monthly = pensionBalance / Math.Max(1, cfg.Pension.AnnuityFactor);
-                pensionPayoutGross = monthly * 12;
-                pensionTax = tax.CalculateIncomeTax(pensionPayoutGross, cfg.Taxes.IncomeTaxBrackets);
-                pensionPayoutNet = pensionPayoutGross - pensionTax;
-                // Reduce balance by payout (ignoring investment return post-annuitization for simplicity)
+                // Calculate fixed annuity payment once at pension start
+                if (fixedPensionAnnuity is null)
+                {
+                    var monthly = pensionBalance / Math.Max(1, cfg.Pension.AnnuityFactor);
+                    fixedPensionAnnuity = monthly * 12;
+                }
+
+                // Pay out fixed amount (or remaining balance if less)
+                pensionPayoutGross = Math.Min(fixedPensionAnnuity.Value, pensionBalance);
+                if (pensionPayoutGross > 0)
+                {
+                    pensionTax = tax.CalculateIncomeTax(pensionPayoutGross, cfg.Taxes.IncomeTaxBrackets);
+                    pensionPayoutNet = pensionPayoutGross - pensionTax;
+                }
+                // Reduce balance by payout
                 pensionBalance = Math.Max(0, pensionBalance - pensionPayoutGross);
             }
 
@@ -113,17 +137,20 @@ public class CalculatorService(ITaxService tax) : ICalculatorService
             var studyFundReturn = studyFund * cfg.StudyFund.AnnualReturnRate;
             studyFund += studyFundReturn + employeeStudyFundContr + employerStudyFundContr;
 
-            // Cashflows
+            // Cashflows (additional income grows with inflation)
             decimal expenses = YearlyExpenses(cfg, year);
-            decimal incomeNet = salaryNet + rsuNet + pensionPayoutNet + cfg.AdditionalIncome.AnnualNetIncome;
+            decimal currentAdditionalIncome = additionalIncome * Pow(1 + cfg.Expenses.AnnualExpensesGrowthRate, year);
+            decimal incomeNet = salaryNet + rsuNet + pensionPayoutNet + currentAdditionalIncome;
 
             // Add RSU net and any net salary savings + additional income to portfolio by default when working
             portfolio += rsuNet;
+            portfolioCostBasis += rsuNet; // RSU net is after-tax, so full amount is cost basis
             if (isWorking)
             {
                 // treat additional net income like salaryNet for savings
-                var savings = Math.Max(0, salaryNet + cfg.AdditionalIncome.AnnualNetIncome - expenses);
+                var savings = Math.Max(0, salaryNet + currentAdditionalIncome - expenses);
                 portfolio += savings;
+                portfolioCostBasis += savings; // Savings are new contributions
             }
 
             // If not working, cover expenses from income + withdrawals (portfolio first, then study fund as last resort)
@@ -152,12 +179,19 @@ public class CalculatorService(ITaxService tax) : ICalculatorService
                     shortfall -= fromPortfolio;
                 }
 
-                // Capital gains tax approximation: tax on withdrawals proportional to gains fraction
-                if (cfg.Portfolio.TaxWithdrawalsAsCapitalGains && portfolioReturn > 0 && portfolioWithdrawalGross > 0)
+                // Capital gains tax: tax on the gains portion of withdrawals based on cost basis
+                if (cfg.Portfolio.TaxWithdrawalsAsCapitalGains && portfolioWithdrawalGross > 0 && portfolio + portfolioWithdrawalGross > portfolioCostBasis)
                 {
-                    var gainsFraction = portfolioReturn / Math.Max(1, portfolioStart + portfolioReturn);
+                    // Calculate what fraction of current portfolio is gains vs cost basis
+                    var totalBeforeWithdrawal = portfolio + portfolioWithdrawalGross;
+                    var gainsFraction = Math.Max(0, (totalBeforeWithdrawal - portfolioCostBasis) / totalBeforeWithdrawal);
                     portfolioCapGainsTax = portfolioWithdrawalGross * gainsFraction * cfg.Taxes.CapitalGainsRate;
                     portfolio -= portfolioCapGainsTax;
+
+                    // Reduce cost basis proportionally with withdrawal
+                    var costBasisFraction = 1 - gainsFraction;
+                    portfolioCostBasis -= portfolioWithdrawalGross * costBasisFraction;
+                    portfolioCostBasis = Math.Max(0, portfolioCostBasis);
                 }
 
                 if (shortfall > 0)
@@ -179,8 +213,7 @@ public class CalculatorService(ITaxService tax) : ICalculatorService
 
             if (isWorking)
             {
-                var additional = cfg.AdditionalIncome.AnnualNetIncome;
-                var savings = Math.Max(0, salaryNet + additional - expenses);
+                var savings = Math.Max(0, salaryNet + currentAdditionalIncome - expenses);
                 var contributions = rsuNet + savings;
                 if (!foundPortfolioReturnExceedsContribution && portfolioReturn > contributions)
                 {
@@ -238,7 +271,7 @@ public class CalculatorService(ITaxService tax) : ICalculatorService
             salary *= 1 + cfg.Salary.AnnualSalaryGrowthRate;
         }
 
-        return Task.FromResult<IReadOnlyList<YearResult>>(list);
+        return list;
     }
 
     private static decimal YearlyExpenses(AppConfig cfg, int yearIndex)

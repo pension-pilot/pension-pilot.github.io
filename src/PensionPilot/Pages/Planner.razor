@@ -127,7 +127,7 @@ else
         }
         EnsureColumnsDictionary();
         BuildColumnDefs();
-        await Run();
+        Run();
     }
 
     private void EnsureColumnsDictionary()
@@ -160,10 +160,10 @@ else
         };
     }
 
-    private async Task Run()
+    private void Run()
     {
         if (_config is null) return;
-        _results = await Calc.ProjectAsync(_config);
+        _results = Calc.Project(_config);
         BuildAchievementMarkers();
     }
 
