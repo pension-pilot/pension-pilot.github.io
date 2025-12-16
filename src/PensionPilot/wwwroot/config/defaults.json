@@ -41,8 +41,7 @@
     "annualSalaryGrowthRate": 0.02
   },
   "rsu": {
-    "annualGrantAmount": 0,
-    "vestingYears": 4
+    "annualGrantAmount": 0
   },
   "portfolio": {
     "currentValue": 2000000,

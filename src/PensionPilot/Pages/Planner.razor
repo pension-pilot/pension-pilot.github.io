@@ -85,6 +85,7 @@ else
             @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.RsuNet))) { <PropertyColumn Property="@(p => p.RsuNet)" Title="RSU Net" Format="N0" /> }
             @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.PensionPayoutNet))) { <PropertyColumn Property="@(p => p.PensionPayoutNet)" Title="Pension Net" Format="N0" /> }
             @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.NetIncome))) { <PropertyColumn Property="@(p => p.NetIncome)" Title="Net Income" Format="N0" /> }
+            @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.PortfolioWithdrawalGross))) { <PropertyColumn Property="@(p => p.PortfolioWithdrawalGross)" Title="Portfolio Withdrawal" Format="N0" /> }
             @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.PortfolioEnd))) { <PropertyColumn Property="@(p => p.PortfolioEnd)" Title="Portfolio EOY" Format="N0" /> }
             @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.StudyFundEnd))) { <PropertyColumn Property="@(p => p.StudyFundEnd)" Title="Study Fund EOY" Format="N0" /> }
             @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.PensionBalanceEnd))) { <PropertyColumn Property="@(p => p.PensionBalanceEnd)" Title="Pension EOY" Format="N0" /> }
@@ -151,6 +152,7 @@ else
             new ColumnMeta(nameof(YearResult.RsuNet), "RSU Net", "Vested RSU value after income tax (sell-on-vest)."),
             new ColumnMeta(nameof(YearResult.PensionPayoutNet), "Pension Net", "Pension annuity after income tax."),
             new ColumnMeta(nameof(YearResult.NetIncome), "Net Income", "Total net inflows (salary + RSU + pension + additional)."),
+            new ColumnMeta(nameof(YearResult.PortfolioWithdrawalGross), "Portfolio Withdrawal", "Gross withdrawal from taxable portfolio."),
             new ColumnMeta(nameof(YearResult.PortfolioEnd), "Portfolio EOY", "End-of-year taxable portfolio balance."),
             new ColumnMeta(nameof(YearResult.StudyFundEnd), "Study Fund EOY", "End-of-year study fund balance."),
             new ColumnMeta(nameof(YearResult.PensionBalanceEnd), "Pension EOY", "Remaining pension fund balance."),

@@ -22,8 +22,7 @@ public class CalculatorService(ITaxService tax) : ICalculatorService
         bool foundPortfolioReturnExceedsSalary = false;
         bool foundWithdrawalRateCoversExpenses = false;
 
-        // Guard against division by zero
-        var vestingYears = Math.Max(1, cfg.Rsu.VestingYears);
+        int pensionPayoutYear = 0; // Track years since pension started for annual adjustment
 
         for (int year = 0; age <= cfg.Timeline.ModelEndAge; year++, age++)
         {
@@ -70,31 +69,15 @@ public class CalculatorService(ITaxService tax) : ICalculatorService
                 salaryNet = salaryGross - salaryTax - employeePensionContr - employeeStudyFundContr;
             }
 
-            // RSU: annual grant, vest over 4 years equally, sell on vest
+            // RSU: annual grant added to portfolio while working
             decimal rsuVested = 0;
             decimal rsuTax = 0;
             decimal rsuNet = 0;
-            if (cfg.Rsu.AnnualGrantAmount > 0)
+            if (isWorking && cfg.Rsu.AnnualGrantAmount > 0)
             {
-                // For year N, vest 1/4 of each of the last VestingYears grants, but only count grants from working years
-                for (int g = 0; g < vestingYears; g++)
-                {
-                    var grantIndex = year - g; // grant in this or previous years
-                    if (grantIndex < 0) continue;
-
-                    // Only count this grant if it was made during a working year
-                    var grantAge = cfg.Timeline.CurrentAge + grantIndex;
-                    var wasWorking = grantAge < cfg.Timeline.RetirementAge;
-                    if (!wasWorking) continue;
-
-                    rsuVested += cfg.Rsu.AnnualGrantAmount / vestingYears;
-                }
-                // Tax RSU as income on vest
-                if (rsuVested > 0)
-                {
-                    rsuTax = tax.CalculateIncomeTax(rsuVested, cfg.Taxes.IncomeTaxBrackets);
-                    rsuNet = rsuVested - rsuTax;
-                }
+                rsuVested = cfg.Rsu.AnnualGrantAmount;
+                rsuTax = tax.CalculateIncomeTax(rsuVested, cfg.Taxes.IncomeTaxBrackets);
+                rsuNet = rsuVested - rsuTax;
             }
 
             // Pension growth until pension age, then payout as annuity
@@ -109,22 +92,24 @@ public class CalculatorService(ITaxService tax) : ICalculatorService
             }
             else
             {
-                // Calculate fixed annuity payment once at pension start
+                // Calculate base annuity payment once at pension start
                 if (fixedPensionAnnuity is null)
                 {
                     var monthly = pensionBalance / Math.Max(1, cfg.Pension.AnnuityFactor);
                     fixedPensionAnnuity = monthly * 12;
+                    // Balance no longer tracked - annuity pays for life
+                    pensionBalance = 0;
                 }
 
-                // Pay out fixed amount (or remaining balance if less)
-                pensionPayoutGross = Math.Min(fixedPensionAnnuity.Value, pensionBalance);
+                // Annuity pays for life, adjusted annually by expense growth rate
+                pensionPayoutGross = fixedPensionAnnuity.Value * Pow(1 + cfg.Expenses.AnnualExpensesGrowthRate, pensionPayoutYear);
+                pensionPayoutYear++;
+
                 if (pensionPayoutGross > 0)
                 {
                     pensionTax = tax.CalculateIncomeTax(pensionPayoutGross, cfg.Taxes.IncomeTaxBrackets);
                     pensionPayoutNet = pensionPayoutGross - pensionTax;
                 }
-                // Reduce balance by payout
-                pensionBalance = Math.Max(0, pensionBalance - pensionPayoutGross);
             }
 
             // Portfolio return first
