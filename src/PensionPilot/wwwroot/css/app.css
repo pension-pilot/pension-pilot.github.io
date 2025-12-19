@@ -2,6 +2,10 @@ html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
+h1 {
+    font-size: 1.5rem;
+}
+
 h1:focus {
     outline: none;
 }
@@ -161,6 +165,42 @@ code {
     color: #000;
     background-color: var(--pp-gold-hover);
     border-color: darken(var(--pp-gold-border), 5%);
+}
+
+.btn-preview {
+    color: #000;
+    background-color: var(--pp-gold);
+    border-color: var(--pp-gold-border);
+}
+
+.btn-preview:hover,
+.btn-preview:focus {
+    color: #000;
+    background-color: var(--pp-gold-hover);
+    border-color: var(--pp-gold-border);
+}
+
+.btn-save {
+    color: #fff;
+    background-color: #198754; /* Bootstrap success green */
+    border-color: #198754;
+}
+
+.btn-save:hover,
+.btn-save:focus {
+    color: #fff;
+    background-color: #157347;
+    border-color: #146c43;
+}
+
+/* Legend dot for chart comparison */
+.legend-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
 }
 
 .btn-cyan-outline {

@@ -247,6 +247,13 @@ else
                     Calculate
                 </button>
             }
+            @if (ShowPreview)
+            {
+                <button type="button" class="btn btn-preview" @onclick="HandlePreview">
+                    <i class="bi bi-eye me-1"></i>
+                    Preview
+                </button>
+            }
             @if (ShowSave)
             {
                 <button class="btn btn-cyan-outline" type="submit">
@@ -293,10 +300,16 @@ else
     public bool ShowCalculate { get; set; } = false;
 
     [Parameter]
+    public bool ShowPreview { get; set; } = false;
+
+    [Parameter]
     public EventCallback<AppConfig> Save { get; set; }
 
     [Parameter]
     public EventCallback<AppConfig> Calculate { get; set; }
+
+    [Parameter]
+    public EventCallback<AppConfig> Preview { get; set; }
 
     [Parameter]
     public EventCallback OnReloadDefaults { get; set; }
@@ -327,6 +340,15 @@ else
         if (_editContext?.Validate() == true)
         {
             await Calculate.InvokeAsync(Config);
+        }
+    }
+
+    private async Task HandlePreview()
+    {
+        if (Config is null) return;
+        if (_editContext?.Validate() == true)
+        {
+            await Preview.InvokeAsync(Config);
         }
     }
 

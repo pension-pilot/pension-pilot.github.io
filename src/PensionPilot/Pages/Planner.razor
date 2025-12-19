@@ -9,7 +9,7 @@
 @using Microsoft.AspNetCore.Components
 @inject IJSRuntime JS
 
-<h3>Results</h3>
+<h1>Results</h1>
 
 @if (_config is null || _results is null)
 {
@@ -18,6 +18,7 @@
 else
 {
     <TemporaryConfigBanner IsTemporary="isTemporaryConfig" />
+    
     <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mb-2">
         <button class="btn btn-sm btn-cyan-outline" @onclick="() => columnsPanelVisible = !columnsPanelVisible">
             <i class="bi bi-columns me-1"></i>
@@ -27,18 +28,18 @@ else
             <i class="bi bi-filetype-csv me-1"></i>
             Export CSV
         </button>
-    <button class="btn btn-sm btn-cyan-outline position-relative" @onclick="ShareConfig">
+        <button class="btn btn-sm btn-cyan-outline position-relative" @onclick="ShareConfig">
             @if (copied)
             {
                 <span>
-            <i class="bi bi-clipboard-check me-1"></i>
+                    <i class="bi bi-clipboard-check me-1"></i>
                     Copied!
                 </span>
             }
             else
             {
                 <span>
-            <i class="bi bi-share me-1"></i>
+                    <i class="bi bi-share me-1"></i>
                     Share
                 </span>
             }
@@ -50,7 +51,15 @@ else
                 View Shared Configuration
             </button>
         }
+        @if (_isComparisonMode)
+        {
+            <button class="btn btn-sm btn-save" @onclick="SavePreviewConfig">
+                <i class="bi bi-save me-1"></i>
+                Save Changes
+            </button>
+        }
     </div>
+
     <div class="mt-2 mb-3 text-muted small border rounded p-2">
         <div>Net worth at the age of @_config.Timeline.ModelEndAge: <strong>@FormatNumber(_results.Last().NetWorthEnd)</strong></div>
         @if (_landmarksParts.Count > 0)
@@ -76,6 +85,13 @@ else
         </div>
     }
 
+    <div class="mb-3">
+        <NetWorthChart Results="_savedResults ?? _results" 
+                       ComparisonResults="@(_isComparisonMode ? _results : null)" 
+                       ComparisonLabel="@(_comparisonLabel)"
+                       Achievements="_achievements" />
+    </div>
+
     <div class="table-responsive border rounded p-1 mb-3">
         <QuickGrid Items="_results.AsQueryable()" Class="table table-sm mb-0">
             <PropertyColumn Property="@(p => p.Age)" Title="Age" />
@@ -94,15 +110,18 @@ else
             @if (IsColumnShown(nameof(PensionPilot.Services.YearResult.NetWorthEnd))) { <PropertyColumn Property="@(p => p.NetWorthEnd)" Title="Net Worth" Format="N0" /> }
         </QuickGrid>
     </div>
-    <NetWorthChart Results="_results" Achievements="_achievements" />
 }
 
 @code {
     private AppConfig? _config;
+    private AppConfig? _savedConfig; // The saved config from localStorage
     private IReadOnlyList<PensionPilot.Services.YearResult>? _results;
+    private IReadOnlyList<PensionPilot.Services.YearResult>? _savedResults; // Results from saved config for comparison
     private bool columnsPanelVisible;
     private bool copied;
     private bool isTemporaryConfig;
+    private bool _isComparisonMode; // True when showing preview or share comparison
+    private string? _comparisonLabel; // Label for the comparison line
     private string? shareUrl;
     private List<AchievementPoint> _achievements = new();
     private readonly List<string> _landmarksParts = new();
@@ -116,16 +135,35 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        // Prefer config from shared query, otherwise load saved config
+        // Check for share mode (from URL)
         if (!string.IsNullOrWhiteSpace(Share) && ConfigShareHelper.TryDecode(Share, out var imported))
         {
             _config = imported;
+            _isComparisonMode = true;
+            _comparisonLabel = "Shared Plan";
             isTemporaryConfig = true;
+            // Load saved config fresh from localStorage for comparison (bypass cache)
+            _savedConfig = await ConfigService.GetSavedConfigAsync();
         }
-        if (_config is null)
+        // Check for preview mode (from sessionStorage)
+        else if (await ConfigService.HasPreviewConfigAsync())
         {
-            _config = await ConfigService.GetConfigAsync();
+            _config = await ConfigService.GetPreviewConfigAsync();
+            _isComparisonMode = true;
+            _comparisonLabel = "Preview";
+            isTemporaryConfig = false;
+            // Load saved config fresh from localStorage for comparison (bypass cache)
+            _savedConfig = await ConfigService.GetSavedConfigAsync();
         }
+        else
+        {
+            // No preview/share, use saved config
+            _config = await ConfigService.GetConfigAsync();
+            _savedConfig = null;
+            _isComparisonMode = false;
+            _comparisonLabel = null;
+        }
+        
         EnsureColumnsDictionary();
         BuildColumnDefs();
         Run();
@@ -166,6 +204,17 @@ else
     {
         if (_config is null) return;
         _results = Calc.Project(_config);
+        
+        // Calculate saved results for comparison if in comparison mode
+        if (_isComparisonMode && _savedConfig is not null)
+        {
+            _savedResults = Calc.Project(_savedConfig);
+        }
+        else
+        {
+            _savedResults = null;
+        }
+        
         BuildAchievementMarkers();
     }
 
@@ -235,6 +284,19 @@ else
         await ConfigService.SetConfigAsync(_config);
         isTemporaryConfig = false;
         Nav.NavigateTo($"?share={ConfigShareHelper.Encode(_config)}", forceLoad: false);
+    }
+
+    private async Task SavePreviewConfig()
+    {
+        if (!_isComparisonMode || _config is null) return;
+        await ConfigService.SetConfigAsync(_config);
+        await ConfigService.ClearPreviewConfigAsync();
+        _savedConfig = _config;
+        _savedResults = null;
+        _isComparisonMode = false;
+        _comparisonLabel = null;
+        isTemporaryConfig = false;
+        Nav.NavigateTo("planner", forceLoad: false);
     }
 
     private async Task ExportCsv()

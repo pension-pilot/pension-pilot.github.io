@@ -9,6 +9,8 @@
 
 @code {
     [Parameter] public IReadOnlyList<YearResult>? Results { get; set; }
+    [Parameter] public IReadOnlyList<YearResult>? ComparisonResults { get; set; }
+    [Parameter] public string? ComparisonLabel { get; set; }
     [Parameter] public IReadOnlyList<AchievementPoint>? Achievements { get; set; }
 
     private LineChart lineChart = default!;
@@ -22,24 +24,43 @@
         if (Results is null || Results.Count == 0)
             return;
 
+        var datasets = new List<IChartDataset>
+        {
+            new LineChartDataset
+            {
+                Label = "Current Plan",
+                Data = Results.Select(r => (double?)r.NetWorthEnd).ToList(),
+                BorderColor = "rgb(13,110,253)",
+                BackgroundColor = "rgba(13,110,253,0.25)",
+                BorderWidth = 2,
+                HoverBorderWidth = 3,
+                Tension = 0.25,
+                PointRadius = new List<double>{2},
+                PointHoverRadius = new List<double>{4}
+            }
+        };
+
+        // Add comparison line if provided
+        if (ComparisonResults is not null && ComparisonResults.Count > 0)
+        {
+            datasets.Add(new LineChartDataset
+            {
+                Label = ComparisonLabel ?? "New Plan",
+                Data = ComparisonResults.Select(r => (double?)r.NetWorthEnd).ToList(),
+                BorderColor = "rgb(255,193,7)", // Gold color
+                BackgroundColor = "rgba(255,193,7,0.25)",
+                BorderWidth = 2,
+                HoverBorderWidth = 3,
+                Tension = 0.25,
+                PointRadius = new List<double>{2},
+                PointHoverRadius = new List<double>{4}
+            });
+        }
+
         _data = new ChartData
         {
             Labels = Results.Select(r => r.Age.ToString()).ToList(),
-            Datasets = new List<IChartDataset>
-{
-new LineChartDataset
-{
-Label = "Net Worth",
-Data = Results.Select(r => (double?)r.NetWorthEnd).ToList(),
-BorderColor = "rgb(13,110,253)",
-BackgroundColor = "rgba(13,110,253,0.25)",
-BorderWidth = 2,
-HoverBorderWidth = 3,
-Tension = 0.25,
-PointRadius = new List<double>{2},
-PointHoverRadius = new List<double>{4}
-}
-}
+            Datasets = datasets
         };
 
         // Add point-only datasets for achievements (single point with larger radius)
@@ -73,7 +94,7 @@ PointHoverRadius = new List<double>{4}
             Responsive = true
         };
         opts.Interaction.Mode = InteractionMode.Index;
-        opts.Plugins.Legend!.Display = false;
+        opts.Plugins.Legend!.Display = ComparisonResults is not null; // Show legend when comparing
         opts.Scales.X!.Title = new ChartAxesTitle { Text = "Age", Display = true, Color = "white" };
         opts.Scales.Y!.Title = new ChartAxesTitle { Text = "Net Worth", Display = true, Color = "white" };
         _options = opts;

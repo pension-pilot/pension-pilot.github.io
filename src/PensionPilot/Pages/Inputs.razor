@@ -4,12 +4,12 @@
 @inject NavigationManager Nav
 @using Microsoft.AspNetCore.Components
 @using PensionPilot.Services
+@inject IJSRuntime JS
 
 <div class="intro-box" role="note" aria-label="About PensionPilot">
-    <div class="intro-title">
-        <span class="bi bi-info-circle-fill me-1" aria-hidden="true"></span>
-        About Pension Pilot
-    </div>
+    <h1 class="intro-title">
+        Pension Pilot
+    </h1>
     <ul class="mb-0">
         <li>Simulate retirement finances across portfolio, study fund, pension, salary, and RSUs, including income and capital gains taxes.</li>
         <li>Discover important portfolio milestones, such as potential early retirement age.</li>
@@ -26,13 +26,26 @@
 else
 {
     <TemporaryConfigBanner IsTemporary="isTemporary" />
+    @if (isPreviewMode)
+    {
+        <div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-eye-fill"></i>
+            <span>You are editing a <strong>preview</strong> of your plan. Changes are not saved yet.</span>
+            <button class="btn btn-sm btn-outline-secondary ms-auto" @onclick="DiscardPreview">
+                <i class="bi bi-x-circle me-1"></i>
+                Discard Preview
+            </button>
+        </div>
+    }
     <div class="pb-4"> <!-- add bottom padding to avoid footer overlap on mobile when disclaimer visible -->
     <InputsForm Config="_config"
                 ShowSave="true"
-                ShowReloadDefaults="@(!isTemporary)"
+                ShowReloadDefaults="false"
                 ShowCalculate="true"
+                ShowPreview="@(!isTemporary && !isPreviewMode)"
                 Save="OnSave"
                 Calculate="OnCalculate"
+                Preview="OnPreview"
                 OnReloadDefaults="ReloadDefaults" />
     </div>
 }
@@ -40,6 +53,7 @@ else
 @code {
     private AppConfig? _config;
     private bool isTemporary;
+    private bool isPreviewMode;
 
     [SupplyParameterFromQuery(Name = "share")] public string? Share { get; set; }
 
@@ -49,10 +63,19 @@ else
         {
             _config = imported;
             isTemporary = true;
+            isPreviewMode = false;
         }
-        if (_config is null)
+        else if (await ConfigService.HasPreviewConfigAsync())
         {
-            _config = await ConfigService.GetConfigAsync();
+            _config = await ConfigService.GetPreviewConfigAsync();
+            isPreviewMode = true;
+            isTemporary = false;
+        }
+        else
+        {
+            _config = await ConfigService.GetSavedConfigAsync();
+            isPreviewMode = false;
+            isTemporary = false;
         }
     }
 
@@ -61,10 +84,11 @@ else
         // Ensure parent state uses the (possibly new) instance from child (e.g. after Import JSON)
         _config = cfg;
         await ConfigService.SetConfigAsync(cfg);
+        await ConfigService.ClearPreviewConfigAsync();
+        isPreviewMode = false;
         if (isTemporary)
         {
             isTemporary = false;
-            // Navigate to root relative to <base href>
             Nav.NavigateTo("", forceLoad: false);
         }
         StateHasChanged();
@@ -79,15 +103,37 @@ else
             Nav.NavigateTo($"planner?share={b64}");
             return;
         }
+        if (isPreviewMode)
+        {
+            // In preview mode, save the preview and navigate to planner
+            await ConfigService.SetPreviewConfigAsync(cfg);
+            Nav.NavigateTo("planner");
+            return;
+        }
         await ConfigService.SetConfigAsync(cfg);
         Nav.NavigateTo("planner");
     }
 
+    private async Task OnPreview(AppConfig cfg)
+    {
+        // Save preview config to sessionStorage and navigate to planner
+        await ConfigService.SetPreviewConfigAsync(cfg);
+        Nav.NavigateTo("planner");
+    }
+
+    private async Task DiscardPreview()
+    {
+        await ConfigService.ClearPreviewConfigAsync();
+        isPreviewMode = false;
+        _config = await ConfigService.GetSavedConfigAsync();
+        StateHasChanged();
+    }
+
     private async Task ReloadDefaults()
     {
-        if (isTemporary) return; // don't reload defaults over a temporary shared config
+        if (isTemporary || isPreviewMode) return;
         await ConfigService.ResetAsync();
-        _config = await ConfigService.GetConfigAsync();
+        _config = await ConfigService.GetSavedConfigAsync();
         StateHasChanged();
     }
 }
